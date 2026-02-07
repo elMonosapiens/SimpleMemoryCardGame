@@ -1,7 +1,5 @@
 # Simple Memory Card Game
 
-_A lightweight memory card game built with Unity 6.3 LTS, exported for HTML5._
-
 [![Made with Unity](https://img.shields.io/badge/Made%20with-Unity%206.3%20LTS-black?logo=unity&logoColor=white)](https://unity.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Play Online](https://img.shields.io/badge/Play-itch.io-orange)](https://itch.io/)
