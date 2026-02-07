@@ -6,10 +6,11 @@
 // Copyright © 2026 elMonosapiens Games. All rights reserved.
 // Version: 1.0.0
 // Created: 2026-02-07 01:21:29
-// Updated: 2026-02-07 01:36:52
+// Updated: 2026-02-07 02:27:57
 // Description: [Insert Description]
 // ----------------------------------------
 
+using System;
 using System.Collections.Generic;
 using ElMonosapiens.FlipEmCards.Core;
 using UnityEngine;
@@ -31,23 +32,34 @@ namespace ElMonosapiens.FlipEmCards.Gameplay
             return cardPairs;
         }
 
+        /// <summary>
+        /// Randomly assigns CardData entries to Card instances.
+        /// Uses an unbiased Fisher–Yates shuffle to produce a uniform permutation.
+        /// </summary>
+        /// <param name="cards">Array of Card instances to receive data. Must not be null.</param>
+        /// <param name="dataArray">Array of CardData to assign. Must not be null and length must be <= cards.Length.</param>        
         public static void ShuffleCards(Card[] cards, CardData[] dataArray)
         {
-            int[] array = new int[cards.Length];
-            for (int i = 0; i < array.Length; i++)
+            if (cards == null) throw new ArgumentNullException(nameof(cards));
+            if (dataArray == null) throw new ArgumentNullException(nameof(dataArray));
+            if (dataArray.Length > cards.Length) throw new ArgumentException("dataArray length must be <= cards length", nameof(dataArray));
+
+            // Create index array 0..n-1
+            int n = cards.Length;
+            int[] indices = new int[n];
+            for (int i = 0; i < n; i++) indices[i] = i;
+
+            // Fisher–Yates shuffle (unbiased version)
+            for (int i = n - 1; i > 0; i--)
             {
-                array[i] = i;
+                int randomNumber = UnityEngine.Random.Range(0, i + 1); // inclusive upper bound
+                (indices[i], indices[randomNumber]) = (indices[randomNumber], indices[i]);
             }
 
-            for (int i = 0; i < array.Length; i++)
-            {
-                int randomNumber = Random.Range(0, array.Length);
-                (array[randomNumber], array[i]) = (array[i], array[randomNumber]);
-            }
-
+            // Assign dataArray entries to cards using the shuffled indices
             for (int i = 0; i < dataArray.Length; i++)
             {
-                cards[array[i]].SetData(dataArray[i]);
+                cards[indices[i]].SetData(dataArray[i]);
             }
         }
     }
