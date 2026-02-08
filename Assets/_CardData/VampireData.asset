@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 14a277b9b242cc5459a4e086e490b3f6, type: 3}
   m_Name: VampireData
   m_EditorClassIdentifier: Assembly-CSharp::ElMonosapiens.FlipEmCards.Core.CardData
-  label: Vampire
-  artwork: {fileID: -1938700467, guid: 70b82b699410ac542bc1f789aa780542, type: 3}
+  Label: vampire
+  Artwork: {fileID: -1938700467, guid: 70b82b699410ac542bc1f789aa780542, type: 3}

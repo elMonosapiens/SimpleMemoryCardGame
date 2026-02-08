@@ -6,28 +6,31 @@
 // License: MIT
 // Version: 1.0.0
 // Created: 2026-02-07 00:31:17
-// Updated: 2026-02-07 01:51:15
+// Updated: 2026-02-08 03:55:00
 // Description: [Insert Description]
 // ----------------------------------------
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using ElMonosapiens.FlipEmCards.Core;
-using ElMonosapiens.FlipEmCards.UI;
 
 namespace ElMonosapiens.FlipEmCards.Gameplay
 {
     public class TableManager : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private GameManager gameManager;
+        private const int FLIP_THRESHOLD = 2;
+
+        public static TableManager Instance { get; private set; }
 
         [Header("Cards")]
         [SerializeField] private Card[] cardArray;
         [SerializeField] private CardData[] cardDataArray;
 
-        public bool IsPlayerTurn { get; private set; }
+        public Turn Turn { get; private set; } = Turn.Player;
+        public bool IsAllowedToFlipCards => FlipCardsCount < FLIP_THRESHOLD;
         public int FlipCardsCount { get; private set; }
+        public int FacedDownCardsCount => facedDownCards.Count;
 
         public IReadOnlyList<Card> FacedDownCards => facedDownCards;
         private readonly List<Card> facedDownCards = new();
@@ -35,22 +38,35 @@ namespace ElMonosapiens.FlipEmCards.Gameplay
         private Card firstCard;
         private Card secondCard;
 
-        private bool isAllowedToFlipCards;
         private int playerPoints = 0;
         private int cpuPoints = 0;
 
-        private void Awake()
+        public event Action<Turn> OnFreeToPlay;
+        public event Action<Card, Card> OnMatchFound;
+        public event Action<Card, Card> OnTurnEnded;
+
+        // ====== UNITY LIFECYCLE ======
+        private void Awake() => MakethSingleton();
+        private void OnEnable() => GameManager.Instance.OnGameStarted += StartGame;
+        private void OnDisable() => GameManager.Instance.OnGameStarted -= StartGame;
+
+        // ====== INIT =====
+        private void MakethSingleton()
         {
-            if (!gameManager) gameManager = FindFirstObjectByType<GameManager>();
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+            }
+            Instance = this;
         }
 
-        private void StartGame()
+        public void StartGame()
         {
             playerPoints = cpuPoints = 0;
-            IsPlayerTurn = true;
+            Turn = Turn.Player;
 
             SetupDeck();
-            StartTurn(true);
+            StartTurn(Turn);
         }
 
         private void SetupDeck()
@@ -75,27 +91,148 @@ namespace ElMonosapiens.FlipEmCards.Gameplay
         private void ListFacedDownCards()
         {
             facedDownCards.Clear();
+
             foreach (var card in cardArray)
             {
-                if (!card.IsFaceUp) facedDownCards.Add(card);
+                if (!card.IsFaceUp)
+                    facedDownCards.Add(card);
             }
         }
 
-        private void StartTurn(bool isPlayerTurn)
+        // ====== TURN =======
+        private void StartTurn(Turn turn)
         {
-            // Announce turn start
+            Turn = turn;
+
+            // TODO: Announce turn start
+
+            if (Turn is Turn.Player)
+                Debug.Log("<color=cyan>[TableManager]</color> Player turn...");
+            else
+                Debug.Log("<color=cyan>[TableManager]</color> CPU turn...");
+
+            EmitFreeToPlay();
         }
 
         private void ChangeTurn()
         {
-            IsPlayerTurn = !IsPlayerTurn;
-            StartTurn(IsPlayerTurn);
+            Turn = (Turn is Turn.Player)
+                ? Turn.CPU
+                : Turn.Player;
+
+            StartTurn(Turn);
         }
 
         private void EndTurn()
         {
-
+            ListFacedDownCards();
+            ChangeTurn();
         }
+
+        // ====== CARD ======
+        public void FlipCard(Card card)
+        {
+            if (!CanFlipCard(card)) return;
+
+            card.Flip();
+            StoreFlippedCard(card);
+            ListFacedDownCards();
+
+            FlipCardsCount++;
+
+            Debug.Log($"<color=cyan>[TableManager]</color> Card flipped: {card.gameObject.name} ({card.Label})");
+        }
+
+        public bool CanFlipCard(Card card)
+        {
+            if (!IsAllowedToFlipCards)
+            {
+                Debug.LogWarning("<color=cyan>[TableManager]</color> Cannot flip: waiting for match check.");
+                return false;
+            }
+
+            if (card.IsFaceUp)
+            {
+                Debug.LogWarning("<color=cyan>[TableManager]</color> Cannot flip: card already facing up.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void StoreFlippedCard(Card card)
+        {
+            if (firstCard == null) firstCard = card;
+            else if (secondCard == null)
+            {
+                secondCard = card;
+                Invoke(nameof(CheckMatchUp), 2f);
+            }
+        }
+
+        private void CheckMatchUp()
+        {
+            if (firstCard.Matches(secondCard))
+            {
+                DisableCards();
+                SetCardsMatchOwnerText();
+                AddPoints();
+
+                EmitMatchFound(firstCard, secondCard);
+
+                if (FacedDownCardsCount == 0)
+                    GameManager.Instance.DisplayResults();
+                else
+                    EmitFreeToPlay();
+
+                GameManager.Instance.UpdateScore(player: playerPoints, cpu: cpuPoints);
+            }
+            else
+            {
+                EmitTurnEnded(firstCard, secondCard); ;
+                FaceCardsDown();
+            }
+
+            ResetTurn();
+        }
+
+        private void ResetTurn()
+        {
+            secondCard = null;
+            firstCard = null;
+            FlipCardsCount = 0;
+        }
+
+        private void DisableCards()
+        {
+            firstCard.SetInteractable(false);
+            secondCard.SetInteractable(false);
+        }
+
+        private void SetCardsMatchOwnerText()
+        {
+            firstCard.SetMatchOwnerText(Turn);
+            secondCard.SetMatchOwnerText(Turn);
+        }
+
+        private void AddPoints()
+        {
+            if (Turn is Turn.Player) playerPoints++;
+            else cpuPoints++;
+        }
+
+        private void FaceCardsDown()
+        {
+            firstCard.Flip();
+            secondCard.Flip();
+
+            Invoke(nameof(EndTurn), 1.5f);
+        }
+
+        // ====== EMITTERS ======
+        private void EmitFreeToPlay() => OnFreeToPlay?.Invoke(Turn);
+        private void EmitTurnEnded(Card first, Card second) => OnTurnEnded?.Invoke(first, second);
+        private void EmitMatchFound(Card first, Card second) => OnMatchFound?.Invoke(first, second);
 
     }
 }

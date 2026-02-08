@@ -137,6 +137,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ElMonosapiens.FlipEmCards.Gameplay.Card
   backSprite: {fileID: -1458629640, guid: 70b82b699410ac542bc1f789aa780542, type: 3}
   matchOwnerText: {fileID: 5766607963543914060}
+  scaledUpValue: 1.2
+  scaleUpDuration: 0.5
+  spriteChangeDuration: 0.1
+  scaleDownDuration: 0.25
+  scaleUpEase: 6
 --- !u!114 &8795931411408194500
 MonoBehaviour:
   m_ObjectHideFlags: 0
